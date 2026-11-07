@@ -1,0 +1,56 @@
+name: Deploy Backend to cPanel
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Backend/**" # Only triggers when changes are made inside the Backend folder
+      - ".github/workflows/backend-deploy.yml"
+
+jobs:
+  deploy-backend:
+    name: Build & Deploy Node.js Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: SSH Remote Commands & Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            # Navigate to your backend directory on cPanel
+            cd public_html/demeportfolio_backend
+
+            echo "Pulling latest changes from GitHub..."
+            git pull origin main
+
+            echo "Installing dependencies..."
+            npm install
+
+            echo "Generating Prisma client..."
+            npx prisma generate
+
+            echo "Running database migrations (if any)..."
+            npx prisma migrate deploy
+
+            echo "Building TypeScript backend..."
+            npm run build
+
+            echo "Restarting cPanel Node.js application..."
+            mkdir -p tmp
+            touch tmp/restart.txt
+
+            echo "Backend deployment completed successfully!"

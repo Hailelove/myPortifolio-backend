@@ -11,14 +11,25 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 
 const app = express();
 
-// const allowedOrigins = env.CLIENT_URL.split(",").map((origin) => origin.trim());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://demeportfolio.neyasoft.com",
+];
 
 app.use(helmet());
 
 app.use(
   cors({
-    // origin: allowedOrigins,
-    origin: "http://localhost:5173/, https://demeportfolio.com",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg =
+          "The CORS policy for this site does not allow access from the specified Origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "x-admin-setup-key"],
