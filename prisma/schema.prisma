@@ -1,0 +1,446 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum SkillCategory {
+  FRONTEND
+  BACKEND
+  DATABASE
+  MOBILE
+  DEVOPS
+  TOOLS
+  DESIGN
+  OTHER
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  INTERNSHIP
+  SELF_EMPLOYED
+}
+
+enum ProjectCategory {
+  WEB_APPLICATION
+  MOBILE_APPLICATION
+  DESKTOP_APPLICATION
+  API
+  ENTERPRISE_SYSTEM
+  MANAGEMENT_SYSTEM
+  OTHER
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  COMPLETED
+  MAINTENANCE
+  ARCHIVED
+}
+
+enum MessageStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+}
+
+// ==========================================
+// ADMIN AUTHENTICATION
+// ==========================================
+
+model Admin {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  fullName     String?
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  sessions     AdminSession[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model AdminSession {
+  id         String   @id @default(cuid())
+  adminId    String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ipAddress  String?
+
+  admin      Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([expiresAt])
+}
+
+// ==========================================
+// PERSONAL PROFILE
+// ==========================================
+
+model Profile {
+  id              String   @id @default(cuid())
+  fullName        String
+  professionalTitle String
+  headline        String?
+  shortBio        String?  @db.Text
+  biography       String?  @db.Text
+
+  email           String?
+  phone           String?
+  location        String?
+
+  profileImage    String?
+  coverImage      String?
+  resumeUrl       String?
+
+  yearsOfExperience Int?
+  availability    Boolean  @default(true)
+  availabilityText String?
+
+  isPublished     Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==========================================
+// SKILLS
+// ==========================================
+
+model Skill {
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  category      SkillCategory
+  description   String?       @db.Text
+
+  proficiency   Int?          // 0-100
+  icon          String?
+  color         String?
+
+  isFeatured    Boolean       @default(false)
+  isPublished   Boolean       @default(true)
+  sortOrder     Int           @default(0)
+
+  projects      ProjectSkill[]
+  experiences   ExperienceSkill[]
+  services      ServiceSkill[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([category])
+  @@index([isPublished, sortOrder])
+}
+
+// ==========================================
+// PROFESSIONAL EXPERIENCE
+// ==========================================
+
+model Experience {
+  id             String         @id @default(cuid())
+
+  company        String
+  companyWebsite String?
+  companyLogo    String?
+  position       String
+  employmentType EmploymentType?
+
+  location       String?
+  startDate      DateTime
+  endDate        DateTime?
+  isCurrent      Boolean        @default(false)
+
+  description    String         @db.Text
+  achievements   String[]       @default([])
+
+  isPublished    Boolean        @default(true)
+  sortOrder      Int            @default(0)
+
+  skills         ExperienceSkill[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([startDate])
+  @@index([isPublished, sortOrder])
+}
+
+model ExperienceSkill {
+  experienceId String
+  skillId      String
+
+  experience   Experience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  skill        Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([experienceId, skillId])
+  @@index([skillId])
+}
+
+// ==========================================
+// PROJECTS
+// ==========================================
+
+model Project {
+  id              String          @id @default(cuid())
+
+  name            String
+  slug            String          @unique
+  tagline         String?
+  description     String          @db.Text
+  overview        String?         @db.Text
+
+  category        ProjectCategory
+  status          ProjectStatus   @default(COMPLETED)
+
+  thumbnail       String?
+  liveUrl         String?
+  githubUrl       String?
+  demoUrl         String?
+
+  clientName      String?
+  startDate       DateTime?
+  endDate         DateTime?
+
+  isFeatured      Boolean         @default(false)
+  isPublished     Boolean         @default(true)
+  sortOrder       Int             @default(0)
+
+  skills          ProjectSkill[]
+  images          ProjectImage[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([isPublished, sortOrder])
+  @@index([isFeatured])
+}
+
+model ProjectSkill {
+  projectId String
+  skillId   String
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, skillId])
+  @@index([skillId])
+}
+
+model ProjectImage {
+  id          String   @id @default(cuid())
+  projectId   String
+
+  imageUrl    String
+  altText     String?
+  caption     String?
+  sortOrder   Int      @default(0)
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, sortOrder])
+}
+
+// ==========================================
+// SERVICES
+// ==========================================
+
+model Service {
+  id              String   @id @default(cuid())
+
+  title           String
+  slug            String   @unique
+  shortDescription String?
+  description     String   @db.Text
+
+  icon            String?
+  imageUrl        String?
+
+  features        String[] @default([])
+
+  startingPrice   Decimal? @db.Decimal(10, 2)
+  currency        String?  @default("ETB")
+
+  isFeatured      Boolean  @default(false)
+  isPublished     Boolean  @default(true)
+  sortOrder       Int      @default(0)
+
+  skills          ServiceSkill[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+}
+
+model ServiceSkill {
+  serviceId String
+  skillId   String
+
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  skill     Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, skillId])
+  @@index([skillId])
+}
+
+// ==========================================
+// CONTACT MESSAGES
+// ==========================================
+
+model ContactMessage {
+  id          String        @id @default(cuid())
+
+  name        String
+  email       String
+  subject     String?
+  message     String        @db.Text
+
+  status      MessageStatus @default(NEW)
+
+  ipAddress   String?
+  userAgent   String?
+
+  readAt      DateTime?
+  repliedAt   DateTime?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+// ==========================================
+// EDUCATION
+// ==========================================
+
+model Education {
+  id             String   @id @default(cuid())
+
+  institution    String
+  degree         String
+  fieldOfStudy   String?
+  location       String?
+
+  startDate      DateTime
+  endDate        DateTime?
+  isCurrent      Boolean  @default(false)
+
+  description    String?  @db.Text
+  institutionLogo String?
+
+  isPublished    Boolean  @default(true)
+  sortOrder      Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+}
+
+// ==========================================
+// CERTIFICATIONS
+// ==========================================
+
+model Certification {
+  id             String   @id @default(cuid())
+
+  name           String
+  issuer         String
+  credentialId   String?
+  credentialUrl  String?
+  certificateImage String?
+
+  issueDate      DateTime?
+  expirationDate DateTime?
+  doesNotExpire  Boolean  @default(false)
+
+  description    String?  @db.Text
+
+  isPublished    Boolean  @default(true)
+  sortOrder      Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+}
+
+// ==========================================
+// SOCIAL MEDIA LINKS
+// ==========================================
+
+model SocialLink {
+  id          String   @id @default(cuid())
+
+  platform    String
+  url         String
+  username    String?
+  icon        String?
+
+  isVisible   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isVisible, sortOrder])
+}
+
+// ==========================================
+// TESTIMONIALS
+// ==========================================
+
+model Testimonial {
+  id             String   @id @default(cuid())
+
+  clientName     String
+  position       String?
+  company        String?
+  clientImage    String?
+
+  message        String   @db.Text
+
+  rating         Int?
+  isFeatured     Boolean  @default(false)
+  isPublished    Boolean  @default(false)
+  sortOrder      Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isPublished, sortOrder])
+}
